@@ -13,6 +13,7 @@ struct Node
 
 class FineGrainedQueue
 {
+private:
     Node* head;
     std::mutex* queue_mutex;
 
@@ -22,35 +23,41 @@ public:
         queue_mutex->lock();
 
         Node* prev = this->head;
-        Node* cur = this->head->next;
 
-        prev->node_mutex->lock();
+        if (this->head->next == nullptr)
+        {
+            Node* node = new Node;
+            this->head->next = node;
+            node->value = value;
+            node->next = nullptr;
+            queue_mutex->unlock();
+            return;
+        }
+
         queue_mutex->unlock();
 
-        if (cur != nullptr)
+        prev->node_mutex->lock();
+
+        for (int i = 1; i < pos; ++i)
         {
-            cur->node_mutex->lock();
-        }
-        while (cur != nullptr)
-        {
-            for (int i = 0; i < pos; ++i)
+            Node* old_prev = prev;
+            prev = old_prev->next;
+            old_prev->node_mutex->unlock();
+            prev->node_mutex->lock();
+
+            if (prev->next == nullptr)
             {
-                Node* old_prev = prev;
-                prev = cur;
-                cur = cur->next;
-                old_prev->node_mutex->unlock();
-            }
-            if (cur != nullptr)
-            {
-                cur->node_mutex->lock();
-            }
+                break;
+            }            
         }
+
         Node* node = new Node;
         node->value = value;
-        node->next = cur;
+        node->next = prev->next;
         prev->next = node;
         prev->node_mutex->unlock();
-        cur->node_mutex->unlock();
+
+        return;
     }
 };
 
